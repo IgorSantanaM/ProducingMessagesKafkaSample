@@ -9,15 +9,15 @@ using Microsoft.Extensions.Logging;
 public class ClientGatewayControllerTests
 {
     private Logger<ClientGatewayController> _logger;
-    private Mock<IProducer<String, String>> _mockProducer;
+    private Mock<IProducer<string, string>> _mockProducer;
     private ClientGatewayController _controller;
 
     [SetUp]
     public void Setup()
     {
         _logger = new Logger<ClientGatewayController>(new LoggerFactory());
-        _mockProducer = new Mock<IProducer<String, String>>();
-        _controller = new ClientGatewayController(_mockProducer.Object, _logger);
+        _mockProducer = new Mock<IProducer<string, string>>();
+        _controller = new ClientGatewayController(_logger, _mockProducer.Object);
     }
 
     [Test]
