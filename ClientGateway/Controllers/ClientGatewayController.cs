@@ -1,5 +1,6 @@
 ﻿using System.Diagnostics.Metrics;
 using System.Net;
+using ClientGateway.Models;
 using Confluent.Kafka;
 using Microsoft.AspNetCore.Mvc;
 using static Confluent.Kafka.ConfigPropertyNames;
@@ -11,9 +12,9 @@ namespace ClientGateway.Controllers;
 public class ClientGatewayController : ControllerBase
 {
     private readonly ILogger<ClientGatewayController> _logger;
-    private readonly IProducer<string, string> _producer;
+    private readonly IProducer<string, Biometrics> _producer;
 
-    public ClientGatewayController(ILogger<ClientGatewayController> logger, IProducer<string, string> producer)
+    public ClientGatewayController(ILogger<ClientGatewayController> logger, IProducer<string, Biometrics> producer)
     {
         _logger = logger;
         _producer = producer;
@@ -21,7 +22,7 @@ public class ClientGatewayController : ControllerBase
     }
 
     [HttpGet("Hello")]
-    [ProducesResponseType(typeof(String), (int)HttpStatusCode.OK)]
+    [ProducesResponseType(typeof(string), (int)HttpStatusCode.OK)]
     public string Hello()
     {
         _logger.LogInformation("Hello World");
@@ -30,10 +31,15 @@ public class ClientGatewayController : ControllerBase
 
     [HttpGet("RecordMeasurements")]
     [ProducesResponseType(typeof(string), (int)HttpStatusCode.OK)]
-    public async Task<string> RecordMeasurements(Message<string, string> message)
+    public async Task<DeliveryResult<string, Biometrics>> RecordMeasurements(Biometrics biometrics)
     {
-        var produced =  await _producer.ProduceAsync($"{message.Key}", message);
-        return produced.Value;
+        var message = new Message<string, Biometrics>()
+        {
+            Key = biometrics.DeviceId.ToString(),
+            Value = biometrics
+        };
+        var produced =  await _producer.ProduceAsync($"BiometricsImported", message);
+        return produced;
     }
 }
 

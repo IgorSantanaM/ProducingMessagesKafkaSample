@@ -2,44 +2,41 @@
 
 using Moq;
 using Confluent.Kafka;
-using ClientGateway;
 using ClientGateway.Controllers;
 using Microsoft.Extensions.Logging;
+using ClientGateway.Models;
 
 public class ClientGatewayControllerTests
 {
     private Logger<ClientGatewayController> _logger;
-    private Mock<IProducer<string, string>> _mockProducer;
+    private Mock<IProducer<string, Biometrics>> _mockProducer;
     private ClientGatewayController _controller;
 
     [SetUp]
     public void Setup()
     {
         _logger = new Logger<ClientGatewayController>(new LoggerFactory());
-        _mockProducer = new Mock<IProducer<string, string>>();
+        _mockProducer = new Mock<IProducer<string, Biometrics>>();
         _controller = new ClientGatewayController(_logger, _mockProducer.Object);
     }
 
     [Test]
     public async Task RecordMeasurements_ShouldProduceTheExpectedMessage()
     {
-        var expectedTopic = "RawBiometricsImported";
-        var expectedMessage = new Message<String, String>
-        {
-            Value = "Hello World"
-        };
+        var expectedTopic = "BiometricsImported";
+        var expectedMessage = TestHelpers.createMessage();
 
-        _mockProducer.Setup(producer => producer.ProduceAsync(It.IsAny<String>(), It.IsAny<Message<String, String>>(), It.IsAny<CancellationToken>()))
-            .Returns(Task.FromResult(new DeliveryResult<String, String>
+        _mockProducer.Setup(producer => producer.ProduceAsync(It.IsAny<string>(), It.IsAny<Message<string, Biometrics>>(), It.IsAny<CancellationToken>()))
+            .Returns(Task.FromResult(new DeliveryResult<string, Biometrics>
             {
                 Message = expectedMessage
-            })) ;
-        
+            }));
+
         var result = await _controller.RecordMeasurements(expectedMessage.Value);
 
         _mockProducer.Verify(producer => producer.ProduceAsync(
             expectedTopic,
-            It.Is<Message<String, String>>(msg => msg.Value == expectedMessage.Value),
+            It.Is<Message<string, Biometrics>>(msg => msg.Key == expectedMessage.Key && msg.Value == expectedMessage.Value),
             It.IsAny<CancellationToken>()));
 
         _mockProducer.Verify(producer => producer.Flush(It.IsAny<CancellationToken>()), Times.Once());
@@ -50,20 +47,17 @@ public class ClientGatewayControllerTests
     [Test]
     public void RecordMeasurements_ShouldReturnAFailure_IfTheMessageProducerFails()
     {
-        var expectedTopic = "RawBiometricsImported";
-        var expectedMessage = new Message<String, String>
-        {
-            Value = "Hello World"
-        };
+        var expectedTopic = "BiometricsImported";
+        var expectedMessage = TestHelpers.createMessage();
 
-        _mockProducer.Setup(producer => producer.ProduceAsync(It.IsAny<String>(), It.IsAny<Message<String, String>>(), It.IsAny<CancellationToken>()))
-            .Returns(Task.FromException<DeliveryResult<String, String>>(new Exception("Boom")));
+        _mockProducer.Setup(producer => producer.ProduceAsync(It.IsAny<string>(), It.IsAny<Message<string, Biometrics>>(), It.IsAny<CancellationToken>()))
+            .Returns(Task.FromException<DeliveryResult<string, Biometrics>>(new Exception("Boom")));
 
         Assert.ThrowsAsync<Exception>(() => _controller.RecordMeasurements(expectedMessage.Value));
 
         _mockProducer.Verify(producer => producer.ProduceAsync(
             expectedTopic,
-            It.Is<Message<String, String>>(msg => msg.Value == expectedMessage.Value),
+            It.Is<Message<string, Biometrics>>(msg => msg.Key == expectedMessage.Key && msg.Value == expectedMessage.Value),
             It.IsAny<CancellationToken>()));
     }
 }

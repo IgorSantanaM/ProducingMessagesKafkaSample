@@ -1,5 +1,6 @@
 ﻿using ClientGateway;
 using ClientGateway.Controllers;
+using ClientGateway.Models;
 using Confluent.Kafka;
 using Confluent.SchemaRegistry;
 using Confluent.SchemaRegistry.Serdes;
@@ -14,13 +15,31 @@ builder.Services.AddEndpointsApiExplorer();
 builder.Services.AddSwaggerGen();
 
 builder.Services.Configure<ProducerConfig>(builder.Configuration.GetSection("KafkaConfig"));
+builder.Services.Configure<SchemaRegistryConfig>(builder.Configuration.GetSection("SchemaConfig"));
 
-
-builder.Services.AddSingleton<IProducer<string, string>>(sp =>
+builder.Services.AddSingleton<ISchemaRegistryClient>(sp =>
 {
-    var config = sp.GetRequiredService<IOptions<ProducerConfig>>();
+    var config = sp
+        .GetRequiredService<IOptions<SchemaRegistryConfig>>()
+        .Value;
 
-    return new ProducerBuilder<string, string>(config.Value)
+    return new CachedSchemaRegistryClient(config);
+});
+
+builder.Services.AddSingleton<IProducer<string, Biometrics>>(sp =>
+{
+    var producerConfig = sp.GetRequiredService<IOptions<ProducerConfig>>().Value;
+    var schemaConfig = sp.GetRequiredService<ISchemaRegistryClient>();
+
+    var serializerConfig = new JsonSerializerConfig
+    {
+        AutoRegisterSchemas = true
+    };
+
+    return new ProducerBuilder<string, Biometrics>(producerConfig)
+        .SetValueSerializer(new JsonSerializer<Biometrics>
+            (schemaConfig, serializerConfig)
+        )
         .Build();
 });
 
